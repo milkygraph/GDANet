@@ -4,7 +4,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
-from util.data_util import PartNormalDataset
+from util.data_util import CustomDataset
 import torch.nn.functional as F
 import torch.nn as nn
 from model.GDANet_ptseg import GDANet
@@ -16,7 +16,15 @@ from collections import defaultdict
 from torch.autograd import Variable
 import random
 
-classes_str = ['aero','bag','cap','car','chair','ear','guitar','knife','lamp','lapt','moto','mug','Pistol','rock','stake','table']
+classes_str = [
+    "head",
+    "neck",
+    "torso",
+    "left_arm",
+    "right_arm",
+    "hip",
+    "legs",
+]
 
 def _init_():
     if not os.path.exists('checkpoints'):
@@ -55,7 +63,7 @@ def weight_init(m):
 def train(args, io):
 
     # ============= Model ===================
-    num_part = 50
+    num_part = len(classes_str)
     device = torch.device("cuda" if args.cuda else "cpu")
 
     model = GDANet(num_part).to(device)
@@ -85,10 +93,10 @@ def train(args, io):
         print("Training from scratch...")
 
     # =========== Dataloader =================
-    train_data = PartNormalDataset(npoints=args.num_points, split='trainval', normalize=False)
+    train_data = CustomDataset(partition='train')
     print("The number of training data is:%d", len(train_data))
 
-    test_data = PartNormalDataset(npoints=args.num_points, split='test', normalize=False)
+    test_data = CustomDataset(partition='test')
     print("The number of test data is:%d", len(test_data))
 
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, num_workers=6,

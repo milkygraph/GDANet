@@ -2,6 +2,7 @@ import glob
 import h5py
 import numpy as np
 from torch.utils.data import Dataset
+from plyfile import PlyData
 import os
 import json
 
@@ -9,11 +10,10 @@ import json
 def load_data(partition):
     all_data = []
     all_label = []
-    for h5_name in glob.glob('./data/modelnet40_ply_hdf5_2048/ply_data_%s*.h5' % partition):
-        f = h5py.File(h5_name)
-        data = f['data'][:].astype('float32')
-        label = f['label'][:].astype('int64')
-        f.close()
+    for f_name in glob.glob(f"../../data/{partition}/*.ply"):
+        f = PlyData.read(f_name)
+        data = f['vertex'].astype('float32')
+        label = f['vertex']['label'].astype('int64')
         all_data.append(data)
         all_label.append(label)
     all_data = np.concatenate(all_data, axis=0)
@@ -42,6 +42,24 @@ def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
     pointcloud += np.clip(sigma * np.random.randn(N, C), -1*clip, clip)
     return pointcloud
 
+
+# ======= Custom Segmentation ========
+class CustomDataset(Dataset):
+    def __init__(self, partition='train'):
+        self.data, self.label = load_data(partition)
+        self.partition = partition  # Here the new given partition will cover the 'train'
+
+    def __getitem__(self, item):  # indice of the pts or label
+        pointcloud = self.data[item]
+        label = self.label[item]
+        if self.partition == 'train':
+            pointcloud = pc_normalize(pointcloud)  # you can try to add it or not to train our model
+            pointcloud = translate_pointcloud(pointcloud)
+            np.random.shuffle(pointcloud)  # shuffle the order of pts
+        return pointcloud, label
+
+    def __len__(self):
+        return self.data.shape[0]
 
 # =========== ModelNet40 =================
 class ModelNet40(Dataset):
